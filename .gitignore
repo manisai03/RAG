@@ -11,10 +11,13 @@ target/
 .classpath
 .settings/
 .vscode/
+.cursor/
+.mvn-wrapper-temp/
 
 *.class
 *.log
 *.jar
+!.mvn/wrapper/maven-wrapper.jar
 *.war
 *.ear
 
