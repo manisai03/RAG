@@ -1,0 +1,121 @@
+spring:
+  application:
+    name: AI Interview Preparation Assistant
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  ai:
+    model:
+      chat: ollama
+      embedding: none
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: ${app.ai.chat-model}
+          temperature: ${app.ai.temperature}
+      embedding:
+        options:
+          model: ${app.ai.embedding-model}
+
+    vectorstore:
+      qdrant:
+        host: ${QDRANT_HOST:localhost}
+        port: ${QDRANT_PORT:6334}
+        collection-name: ${QDRANT_COLLECTION:interview_documents}
+        use-tls: false
+        initialize-schema: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+  tomcat:
+    connection-timeout: 3600000
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:your-256-bit-secret-key-change-this-in-production-environment-now}
+    expiration-ms: 86400000
+
+  storage:
+    upload-dir: ${UPLOAD_DIR:./uploads}
+    allowed-content-type: application/pdf
+    max-file-size-bytes: 20971520
+
+  chunking:
+    chunk-size: 1000
+    chunk-overlap: 150
+    max-chunks-per-document: 2000
+
+  ai:
+    # llama3.2:3b answers more faithfully but takes minutes per answer on CPU-only machines; set CHAT_MODEL to switch
+    chat-model: ${CHAT_MODEL:llama3.2:1b}
+    embedding-model: nomic-embed-text
+    temperature: 0.7
+    num-ctx: 8192
+    system-prompt: |
+      You are an AI Interview Preparation Assistant.
+      Provide clear, accurate, and practical guidance for technical and behavioral interviews.
+      Use concise explanations and actionable advice.
+
+  qdrant:
+    top-k: 8
+    retrieval-top-k: 30
+    similarity-threshold: 0.0
+    index-batch-size: 25
+    keyword-weight: 0.3
+    # nomic-embed-text cosine scores: related questions ~0.65+, unrelated ~0.50-0.61 (keyword check handles the overlap)
+    min-relevance-score: 0.58
+    strong-relevance-score: 0.78
+
+  rag:
+    max-context-characters: 5000
+    full-document-max-chunks: 200
+    summary-batch-characters: 10000
+    summary-max-batches: 4
+    section-summary-max-context-characters: 8000
+    history-max-turns: 4
+    history-turn-max-characters: 600
+    temperature: 0.1
+    no-context-answer: |
+      I could not find relevant information in your indexed documents to answer this question.
+      Please upload a PDF and index it first using POST /api/rag/documents/{documentId}/index.
+    fallback-to-general: true
+    general-fallback-preamble: |
+      I could not find information about this in your selected PDF (%s).
+      Here is a general interview answer from the AI model:
+
+    system-prompt: |
+      You are a document-grounded assistant. The document excerpts you are given are the only source of truth.
+      The document may be newer than your training data; when they disagree, follow the document.
+      Keep names, numbers and terms exactly as written, and cite excerpts as [Source N].
+      If the excerpts do not contain the answer, say you do not have enough information.
+    question-generation-prompt: |
+      Using ONLY the document excerpts below, generate 10 interview practice questions
+      that a candidate could study from this material.
+      Rules:
+      - Number the list 1 to 10.
+      - Each question must be answerable from the document text provided.
+      - Cover different parts of the document; use wording aligned with it and do not invent topics.
+      - Do not provide answers.
+
+logging:
+  level:
+    org.springframework.security: INFO
+    com.aiinterview.assistant: DEBUG
